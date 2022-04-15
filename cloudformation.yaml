@@ -1,7 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
 
 Resources:
-
   LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -20,19 +19,19 @@ Resources:
             Service: codebuild.amazonaws.com
           Effect: Allow
       Policies:
-      - PolicyName: policy
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-          - Effect: Allow
-            Action:
-            - logs:CreateLogStream
-            - logs:PutLogEvents
-            Resource: !GetAtt LogGroup.Arn
-          - Effect: Allow
-            Action:
-            - lambda:PublishLayerVersion
-            Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${AWS::StackName}*"
+        - PolicyName: policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt LogGroup.Arn
+              - Effect: Allow
+                Action:
+                  - lambda:PublishLayerVersion
+                Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:layer:${AWS::StackName}*"
 
   Project:
     Type: AWS::CodeBuild::Project
@@ -50,12 +49,12 @@ Resources:
           env:
             variables:
               LAYER_NAME: ${AWS::StackName}
-              LAYER_DESCRIPTION: gdal 3.0.4 for python3.8 with netcdf/hdf5 support
+              LAYER_DESCRIPTION: gdal 3.4.2 for python3.8 with netcdf/hdf5 support
           phases:
             build:
               commands:
               # install build tools and dependencies available via yum
-              - yum install -y gcc gcc-c++ make libtool file gzip zip wget openssl-devel libffi-devel
+              - yum install -y gcc gcc-c++ make libtool file gzip zip wget openssl-devel libffi-devel cmake-3.9.2 libtiff-4.0.0 curl-7.29.0
               - yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
               - yum install -y netcdf-devel hdf5-devel
               # create folders for deployment package
@@ -79,18 +78,22 @@ Resources:
               - make -j $(nproc)
               - make install
               - cd ..
-              # install proj 6.3.1
-              - wget https://github.com/OSGeo/PROJ/releases/download/6.3.1/proj-6.3.1.tar.gz
-              - tar xvzf proj-6.3.1.tar.gz
-              - cd proj-6.3.1
-              - ./configure --datarootdir=/opt/lib/data
+              # install proj 9.0.0
+              - wget https://github.com/OSGeo/PROJ/releases/download/9.0.0/proj-9.0.0.tar.gz
+              - tar xvzf proj-9.0.0.tar.gz
+              - cd proj-9.0.0
+              - mkdir build
+              - cd build
+              - cmake ..
+              - cmake --build .
+              - cmake --build. --target install
               - make -j $(nproc)
               - make install
               - cd ..
-              # install gdal 3.0.4
-              - wget https://github.com/OSGeo/gdal/releases/download/v3.0.4/gdal-3.0.4.tar.gz
-              - tar xvzf gdal-3.0.4.tar.gz
-              - cd gdal-3.0.4
+              # install gdal 3.4.2
+              - wget https://github.com/OSGeo/gdal/releases/download/v3.4.2/gdal-3.4.2.tar.gz
+              - tar xvzf gdal-3.4.2.tar.gz
+              - cd gdal-3.4.2
               - ./configure --with-proj --datarootdir=/opt/lib/data > /opt/configure.txt
               - make -j $(nproc)
               - make install
@@ -118,7 +121,7 @@ Resources:
               - cp /usr/lib64/libnss3.so /opt/lib/
               - strip /opt/lib/*.so*
               # install gdal python bindings into deployment package
-              - pip3.8 install -t /opt/python/ gdal==3.0.4
+              - pip3.8 install -t /opt/python/ gdal==3.4.2
               # zip and deploy package
               - cd /opt
               - zip -r gdal-layer.zip *
